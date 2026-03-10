@@ -1,0 +1,20 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+html, body, #root {
+  height: 100%;
+}
+
+.card {
+  @apply bg-gray-800 rounded-xl p-6 border border-gray-700 shadow-lg transition transform hover:-translate-y-1 hover:shadow-2xl;
+}
+
+.neon-text {
+  color: #00eaff;
+  text-shadow: 0 0 10px #00eaff, 0 0 20px #00eaff;
+}
+
+.btn {
+  @apply px-4 py-2 rounded-md bg-neon-blue text-black hover:bg-neon-pink transition;
+}
