@@ -1,0 +1,171 @@
+@import "tailwindcss";
+
+@theme inline {
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, monospace;
+
+  /* Arena Wars Dark Gaming Theme */
+  --color-background: oklch(0.13 0.02 260);
+  --color-foreground: oklch(0.97 0.01 260);
+  
+  --color-card: oklch(0.17 0.02 260);
+  --color-card-foreground: oklch(0.97 0.01 260);
+  
+  --color-popover: oklch(0.15 0.02 260);
+  --color-popover-foreground: oklch(0.97 0.01 260);
+  
+  /* Primary - Cyan/Electric Blue */
+  --color-primary: oklch(0.75 0.18 195);
+  --color-primary-foreground: oklch(0.13 0.02 260);
+  
+  /* Secondary - Purple/Violet */
+  --color-secondary: oklch(0.55 0.25 290);
+  --color-secondary-foreground: oklch(0.97 0.01 260);
+  
+  /* Accent - Orange/Gold for victories */
+  --color-accent: oklch(0.75 0.18 55);
+  --color-accent-foreground: oklch(0.13 0.02 260);
+  
+  --color-muted: oklch(0.25 0.02 260);
+  --color-muted-foreground: oklch(0.65 0.02 260);
+  
+  --color-destructive: oklch(0.60 0.22 25);
+  --color-destructive-foreground: oklch(0.97 0.01 260);
+
+  --color-success: oklch(0.70 0.18 145);
+  --color-success-foreground: oklch(0.13 0.02 260);
+  
+  --color-border: oklch(0.30 0.02 260);
+  --color-input: oklch(0.22 0.02 260);
+  --color-ring: oklch(0.75 0.18 195);
+  
+  --radius: 0.75rem;
+}
+
+* {
+  border-color: var(--color-border);
+}
+
+body {
+  background: var(--color-background);
+  color: var(--color-foreground);
+  font-family: var(--font-sans);
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--color-background);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--color-muted);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-muted-foreground);
+}
+
+/* Glassmorphism utilities */
+.glass {
+  background: linear-gradient(
+    135deg,
+    oklch(0.17 0.02 260 / 0.8),
+    oklch(0.13 0.02 260 / 0.6)
+  );
+  backdrop-filter: blur(20px);
+  border: 1px solid oklch(0.35 0.02 260 / 0.3);
+}
+
+.glass-hover:hover {
+  background: linear-gradient(
+    135deg,
+    oklch(0.20 0.02 260 / 0.85),
+    oklch(0.15 0.02 260 / 0.65)
+  );
+  border-color: oklch(0.75 0.18 195 / 0.4);
+}
+
+/* Glow effects */
+.glow-primary {
+  box-shadow: 0 0 20px oklch(0.75 0.18 195 / 0.3),
+              0 0 40px oklch(0.75 0.18 195 / 0.1);
+}
+
+.glow-secondary {
+  box-shadow: 0 0 20px oklch(0.55 0.25 290 / 0.3),
+              0 0 40px oklch(0.55 0.25 290 / 0.1);
+}
+
+.glow-accent {
+  box-shadow: 0 0 20px oklch(0.75 0.18 55 / 0.3),
+              0 0 40px oklch(0.75 0.18 55 / 0.1);
+}
+
+/* Text glow */
+.text-glow-primary {
+  text-shadow: 0 0 10px oklch(0.75 0.18 195 / 0.5),
+               0 0 20px oklch(0.75 0.18 195 / 0.3);
+}
+
+.text-glow-secondary {
+  text-shadow: 0 0 10px oklch(0.55 0.25 290 / 0.5),
+               0 0 20px oklch(0.55 0.25 290 / 0.3);
+}
+
+/* Animated gradient border */
+@keyframes gradient-shift {
+  0%, 100% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+}
+
+.gradient-border {
+  position: relative;
+}
+
+.gradient-border::before {
+  content: "";
+  position: absolute;
+  inset: -2px;
+  background: linear-gradient(
+    90deg,
+    oklch(0.75 0.18 195),
+    oklch(0.55 0.25 290),
+    oklch(0.75 0.18 55),
+    oklch(0.75 0.18 195)
+  );
+  background-size: 300% 300%;
+  animation: gradient-shift 4s ease infinite;
+  border-radius: inherit;
+  z-index: -1;
+}
+
+/* Pulse animation */
+@keyframes pulse-glow {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+.animate-pulse-glow {
+  animation: pulse-glow 2s ease-in-out infinite;
+}
+
+/* Live indicator */
+.live-indicator {
+  position: relative;
+}
+
+.live-indicator::after {
+  content: "";
+  position: absolute;
+  width: 8px;
+  height: 8px;
+  background: oklch(0.60 0.22 25);
+  border-radius: 50%;
+  animation: pulse-glow 1.5s ease-in-out infinite;
+}
