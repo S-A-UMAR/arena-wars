@@ -118,9 +118,14 @@ REST_FRAMEWORK = {
     ),
 }
 
-CORS_ALLOWED_ORIGINS = [
-    os.environ.get('FRONTEND_ORIGIN', 'http://localhost:5173'),
-]
+FRONTEND_ORIGIN = os.environ.get('FRONTEND_ORIGIN', 'http://localhost:5173')
+if FRONTEND_ORIGIN == '*':
+    CORS_ALLOW_ALL_ORIGINS = True
+else:
+    CORS_ALLOWED_ORIGINS = [
+        FRONTEND_ORIGIN,
+    ]
+
 
 from datetime import timedelta
 SIMPLE_JWT = {
