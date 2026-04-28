@@ -2,19 +2,46 @@
 @tailwind components;
 @tailwind utilities;
 
+:root {
+  --primary: 262 83% 58%;
+  --primary-foreground: 210 20% 98%;
+  --secondary: 217 33% 17%;
+  --secondary-foreground: 210 20% 98%;
+  --accent: 191 100% 50%;
+  --accent-foreground: 222 47% 11%;
+  --background: 222 47% 11%;
+  --foreground: 210 20% 98%;
+  --card: 222 47% 11%;
+  --card-foreground: 210 20% 98%;
+  --muted: 217 33% 17%;
+  --muted-foreground: 215 20% 65%;
+  --border: 217 33% 17%;
+}
+
 html, body, #root {
   height: 100%;
+  background-color: hsl(var(--background));
+  color: hsl(var(--foreground));
+  scroll-behavior: smooth;
 }
 
 .card {
-  @apply bg-gray-800 rounded-xl p-6 border border-gray-700 shadow-lg transition transform hover:-translate-y-1 hover:shadow-2xl;
+  @apply bg-black/40 backdrop-blur-xl border border-white/10 rounded-2xl p-6 shadow-2xl transition-all duration-300 hover:border-accent/40 hover:shadow-accent/10 hover:-translate-y-1;
 }
 
 .neon-text {
-  color: #00eaff;
-  text-shadow: 0 0 10px #00eaff, 0 0 20px #00eaff;
+  @apply text-accent;
+  text-shadow: 0 0 10px hsla(var(--accent), 0.5), 0 0 20px hsla(var(--accent), 0.3);
 }
 
 .btn {
-  @apply px-4 py-2 rounded-md bg-neon-blue text-black hover:bg-neon-pink transition;
+  @apply px-6 py-2.5 rounded-full bg-accent text-background font-bold transition-all duration-300 hover:scale-105 active:scale-95 shadow-lg shadow-accent/20 hover:shadow-accent/40;
+}
+
+.btn-secondary {
+  @apply px-6 py-2.5 rounded-full border border-white/20 hover:bg-white/5 transition-all duration-300;
+}
+
+.glass {
+  @apply bg-white/5 backdrop-blur-md border border-white/10;
 }

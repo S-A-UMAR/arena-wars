@@ -14,6 +14,7 @@ from .views import (
     ChatMessageViewSet,
     NotificationViewSet,
     search,
+    health_check,
 )
 
 router = DefaultRouter()
@@ -34,4 +35,5 @@ urlpatterns = [
     path('login/', TokenObtainPairView.as_view(), name='token_obtain_pair'),
     path('token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
     path('search/', search, name='search'),
+    path('health/', health_check, name='health_check'),
 ]

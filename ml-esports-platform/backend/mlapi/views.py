@@ -188,3 +188,12 @@ def search(request):
         'guilds': [GuildSerializer(g).data for g in guilds],
         'tournaments': [TournamentSerializer(t).data for t in tournaments],
     })
+@api_view(['GET'])
+@permission_classes([permissions.AllowAny])
+def health_check(request):
+    try:
+        from django.db import connection
+        connection.ensure_connection()
+        return Response({'status': 'healthy', 'database': 'connected'}, status=status.HTTP_200_OK)
+    except Exception as e:
+        return Response({'status': 'unhealthy', 'error': str(e)}, status=status.HTTP_503_SERVICE_UNAVAILABLE)
