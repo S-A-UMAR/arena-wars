@@ -27,9 +27,17 @@ api.interceptors.response.use(
   }
 )
 
-export const login = (username, password) => api.post('login/', { username, password });
-export const googleLogin = (token) => api.post('auth/google/', { token });
-export const register = (data) => api.post('auth/register/', data);
+export function login(username, password) {
+  return api.post('/login/', { username, password })
+}
+
+export function googleLogin(token) {
+  return api.post('/auth/google/', { token })
+}
+
+export function register(payload) {
+  return api.post('/auth/register/', payload)
+}
 
 export function getProfile() {
   return api.get('/profile/')
