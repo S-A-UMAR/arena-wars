@@ -89,6 +89,14 @@ export function listMatches() {
   return api.get('/matches/')
 }
 
+export function getMatch(id) {
+  return api.get(`/matches/${id}/`)
+}
+
+export function updateMatchStats(id, payload) {
+  return api.patch(`/matches/${id}/`, payload)
+}
+
 export function listMatchesByTournament(tournamentId) {
   return api.get('/matches/by_tournament/', { params: { tournament: tournamentId } })
 }
