@@ -79,7 +79,36 @@ function TournamentDetail() {
            transition={{ duration: 0.3 }}
          >
             {activeTab === 'bracket' && (
-               // ... (Bracket code stays same)
+              <div className="space-y-12">
+                 {/* Simplified Bracket View */}
+                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
+                    {matches.length > 0 ? matches.map(match => (
+                      <Link to={`/matches/${match.id}`} key={match.id}>
+                        <Card className="p-6 border-white/5 bg-white/[0.01] hover:border-primary/20 transition-all group">
+                           <div className="text-[8px] font-black text-muted-foreground uppercase tracking-widest mb-4">Round {match.round}</div>
+                           <div className="space-y-4">
+                              <div className="flex justify-between items-center">
+                                 <span className="text-xs font-black text-white uppercase italic">{match.guild_a_name}</span>
+                                 <span className="text-sm font-black text-primary">{match.score_a}</span>
+                              </div>
+                              <div className="flex justify-between items-center">
+                                 <span className="text-xs font-black text-white uppercase italic">{match.guild_b_name || 'TBD'}</span>
+                                 <span className="text-sm font-black text-primary">{match.score_b}</span>
+                              </div>
+                           </div>
+                           <div className="mt-4 pt-4 border-t border-white/5 flex justify-between items-center">
+                              <span className={`text-[8px] font-black uppercase tracking-widest ${match.status === 'live' ? 'text-red-500 animate-pulse' : 'text-muted-foreground'}`}>{match.status}</span>
+                              <span className="text-[10px] text-primary opacity-0 group-hover:opacity-100 transition-opacity">Analyze →</span>
+                           </div>
+                        </Card>
+                      </Link>
+                    )) : (
+                      <div className="col-span-full text-center py-20 border border-dashed border-white/5 rounded-[3rem] opacity-30">
+                        <span className="text-xs font-black uppercase tracking-[0.4em]">Bracket Generation Pending</span>
+                      </div>
+                    )}
+                 </div>
+              </div>
             )}
 
             {activeTab === 'roster' && (
