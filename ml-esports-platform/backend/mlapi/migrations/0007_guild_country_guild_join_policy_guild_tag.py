@@ -10,11 +10,11 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
-        migrations.AddField(
-            model_name='guild',
-            name='country',
-            field=models.CharField(blank=True, max_length=64),
-        ),
+        # migrations.AddField(
+        #     model_name='guild',
+        #     name='country',
+        #     field=models.CharField(blank=True, max_length=64),
+        # ),
         migrations.AddField(
             model_name='guild',
             name='join_policy',

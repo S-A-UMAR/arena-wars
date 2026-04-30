@@ -30,13 +30,17 @@ function Home() {
           </motion.div>
 
           <motion.div 
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ delay: 0.5, duration: 1 }}
-            className="flex flex-col md:flex-row gap-4 justify-center items-center"
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.5, duration: 0.8 }}
+            className="flex flex-col md:flex-row gap-6 justify-center items-center"
           >
-            <Link to="/register" className="btn px-12 py-5 text-lg shadow-2xl shadow-primary/40 hover:scale-105 transition-transform">Initialize Profile</Link>
-            <Link to="/guilds" className="px-12 py-5 text-lg font-black uppercase tracking-widest text-white hover:text-primary transition">Explore Guilds</Link>
+            <Link to="/register" className="btn px-14 py-5 text-xl font-black italic uppercase shadow-[0_0_40px_rgba(255,219,0,0.2)] hover:shadow-[0_0_60px_rgba(255,219,0,0.4)] hover:scale-105 transition-all duration-300">
+              Initialize Profile
+            </Link>
+            <Link to="/guilds" className="px-14 py-5 text-xl font-black uppercase tracking-[0.2em] text-white hover:text-primary hover:tracking-[0.3em] transition-all duration-300">
+              Explore Guilds
+            </Link>
           </motion.div>
         </div>
 
