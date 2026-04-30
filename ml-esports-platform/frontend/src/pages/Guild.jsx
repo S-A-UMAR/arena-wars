@@ -1,118 +1,93 @@
+import { useEffect, useState } from 'react'
+import { Link } from 'react-router-dom'
+import Card from '../components/Card'
+import { listGuilds } from '../services/api'
 import { motion } from 'framer-motion'
-
-const container = {
-  hidden: { opacity: 0 },
-  show: {
-    opacity: 1,
-    transition: { staggerChildren: 0.1 }
-  }
-}
-
-const item = {
-  hidden: { opacity: 0, scale: 0.95 },
-  show: { opacity: 1, scale: 1 }
-}
 
 function Guild() {
   const [guilds, setGuilds] = useState([])
-  const [name, setName] = useState('')
-  const [description, setDescription] = useState('')
-  const [hook, setHook] = useState('')
+  const [search, setSearch] = useState('')
+  const [loading, setLoading] = useState(true)
 
   async function load() {
-    const res = await listGuilds()
-    setGuilds(res.data)
+    try {
+      const res = await listGuilds()
+      setGuilds(res.data)
+    } catch (err) {
+      console.error(err)
+    } finally {
+      setLoading(false)
+    }
   }
-  useEffect(()=>{ load() },[])
 
-  async function create() {
-    if (!name) return
-    await createGuild({ name, description, discord_webhook_url: hook })
-    setName('')
-    setDescription('')
-    setHook('')
-    load()
-  }
+  useEffect(() => { load() }, [])
+
+  const filtered = guilds.filter(g => 
+    g.name.toLowerCase().includes(search.toLowerCase()) || 
+    (g.tag && g.tag.toLowerCase().includes(search.toLowerCase()))
+  )
 
   return (
-    <div className="space-y-12 pb-20">
-      <header className="relative py-12 px-8 rounded-3xl overflow-hidden glass border border-white/5">
-        <div className="relative z-10 flex flex-col md:flex-row items-center justify-between gap-8">
-          <div className="text-center md:text-left">
-            <h1 className="text-4xl font-black uppercase italic tracking-tighter text-white mb-2">Build Your <span className="text-accent">Dynasty</span></h1>
-            <p className="text-muted-foreground text-sm uppercase tracking-widest font-bold">Unite the strongest players and dominate the region.</p>
-          </div>
-          <button 
-            className="btn"
-            onClick={() => document.getElementById('createGuildForm')?.scrollIntoView({behavior:'smooth'})}
-          >
-            Form New Guild
-          </button>
+    <div className="space-y-10 pb-20">
+      <header className="flex flex-col md:flex-row justify-between items-end gap-6 border-b border-white/5 pb-8">
+        <div>
+          <h1 className="text-4xl font-black italic uppercase italic-font-orbitron text-white">Guild <span className="text-primary">Discovery</span></h1>
+          <p className="text-[10px] uppercase font-bold text-muted-foreground tracking-[0.4em] mt-2">Find your brotherhood in the arena</p>
         </div>
-        <div className="absolute top-0 right-0 -mr-20 -mt-20 w-64 h-64 bg-accent/20 rounded-full blur-3xl -z-0" />
+        <div className="flex gap-4 w-full md:w-auto">
+          <input 
+            className="flex-1 md:w-64 px-5 py-2.5 rounded-xl bg-white/5 border border-white/10 text-xs text-white outline-none focus:border-primary transition" 
+            placeholder="Search Name or Tag..." 
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+          />
+          <Link to="/guilds/create" className="btn whitespace-nowrap">+ Create Guild</Link>
+        </div>
       </header>
 
-      <motion.div 
-        variants={container}
-        initial="hidden"
-        animate="show"
-        className="grid md:grid-cols-2 lg:grid-cols-3 gap-6"
-      >
-        {guilds.map(g => (
-          <motion.div variants={item} key={g.id}>
-            <Card className="h-full flex flex-col group border border-white/5 hover:border-accent/30 transition-all duration-500">
-              <div className="flex-1">
-                <div className="flex items-center gap-4 mb-6">
-                  <div className="w-16 h-16 rounded-2xl bg-white/5 flex items-center justify-center text-3xl group-hover:bg-accent/10 transition group-hover:scale-110">🛡️</div>
-                  <div>
-                    <h2 className="text-xl font-bold text-white uppercase italic">{g.name}</h2>
-                    <div className="flex items-center gap-2 text-[10px] font-black tracking-widest uppercase text-accent">
-                      <span className="w-1.5 h-1.5 rounded-full bg-accent animate-pulse" />
-                      Global Rank #{g.rank || 'N/A'}
-                    </div>
-                  </div>
+      {loading ? (
+        <div className="text-center py-20 text-muted-foreground italic uppercase tracking-widest text-xs">Scanning Frequencies...</div>
+      ) : filtered.length > 0 ? (
+        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {filtered.map(g => (
+            <Link key={g.id} to={`/guilds/${g.id}`}>
+              <Card className="hover:border-primary/30 transition-all duration-500 group">
+                <div className="flex justify-between items-start mb-6">
+                   <div className="flex items-center gap-4">
+                      <div className="w-14 h-14 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center text-2xl group-hover:bg-primary/10 transition">
+                         {g.logo ? <img src={g.logo} className="w-full h-full object-cover" /> : '🛡️'}
+                      </div>
+                      <div>
+                         <h3 className="text-lg font-black text-white uppercase italic truncate w-32 group-hover:text-primary transition">{g.name}</h3>
+                         <span className="text-[10px] font-black text-accent uppercase tracking-widest">[{g.tag || '??? '}]</span>
+                      </div>
+                   </div>
+                   <div className="text-right">
+                      <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-1">Members</div>
+                      <div className="text-sm font-black text-white">{g.members?.length || 0} / {g.max_slots}</div>
+                   </div>
                 </div>
-                <p className="text-sm text-muted-foreground leading-relaxed mb-8 line-clamp-3">
-                  {g.description || "This guild is focused on competitive Mobile Legends excellence and strategic scrim orchestration."}
-                </p>
-              </div>
-              <div className="flex items-center gap-3 pt-6 border-t border-white/5">
-                <button className="btn-secondary flex-1 py-2" onClick={()=>joinGuild(g.id)}>Join</button>
-                <button className="px-4 py-2 rounded-full text-xs font-bold uppercase tracking-widest bg-white/5 hover:bg-white/10 transition" onClick={()=>leaveGuild(g.id)}>Leave</button>
-              </div>
-            </Card>
-          </motion.div>
-        ))}
-      </motion.div>
-
-      <section id="createGuildForm" className="max-w-3xl mx-auto pt-10">
-        <Card className="glass relative border-accent/20 p-10 overflow-hidden">
-          <div className="relative z-10">
-            <h2 className="text-2xl font-bold mb-8 uppercase italic flex items-center gap-3">
-              <span className="w-2 h-8 bg-accent rounded-full" />
-              Found a New Guild
-            </h2>
-            <div className="space-y-6">
-              <div className="grid md:grid-cols-2 gap-6">
-                <div className="space-y-2">
-                  <label className="text-[10px] font-bold uppercase text-muted-foreground tracking-widest">Guild Name</label>
-                  <input className="w-full px-4 py-3 rounded-xl bg-black/30 border border-white/10 focus:border-accent outline-none transition" placeholder="Elite Vanguard..." value={name} onChange={e=>setName(e.target.value)} />
+                <div className="flex justify-between items-center pt-4 border-t border-white/5">
+                   <div className="flex items-center gap-2">
+                      <span className="text-xs">📍</span>
+                      <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">{g.country || 'Global'}</span>
+                   </div>
+                   <span className={`text-[8px] font-black uppercase tracking-widest px-2 py-0.5 rounded border ${g.join_policy === 'Open' ? 'border-green-500 text-green-500 bg-green-500/5' : 'border-accent text-accent bg-accent/5'}`}>
+                      {g.join_policy}
+                   </span>
                 </div>
-                <div className="space-y-2">
-                  <label className="text-[10px] font-bold uppercase text-muted-foreground tracking-widest">Discord Webhook (Optional)</label>
-                  <input className="w-full px-4 py-3 rounded-xl bg-black/30 border border-white/10 focus:border-accent outline-none transition" placeholder="https://discord.com/api/..." value={hook} onChange={e=>setHook(e.target.value)} />
-                </div>
-              </div>
-              <div className="space-y-2">
-                <label className="text-[10px] font-bold uppercase text-muted-foreground tracking-widest">Guild Manifesto / Description</label>
-                <textarea className="w-full px-4 py-3 rounded-xl bg-black/30 border border-white/10 focus:border-accent outline-none transition h-32 resize-none" placeholder="We play to win..." value={description} onChange={e=>setDescription(e.target.value)} />
-              </div>
-              <button className="btn w-full py-4 text-center mt-4 shadow-xl shadow-accent/20" onClick={create}>Activate Guild</button>
-            </div>
-          </div>
-          <div className="absolute -bottom-24 -left-24 w-64 h-64 bg-primary/10 rounded-full blur-3xl -z-0" />
-        </Card>
-      </section>
+              </Card>
+            </Link>
+          ))}
+        </div>
+      ) : (
+        <div className="text-center py-32 space-y-6">
+           <div className="text-6xl opacity-20">📡</div>
+           <h2 className="text-xl font-black text-white uppercase italic tracking-widest">No active Guilds available.</h2>
+           <p className="text-muted-foreground text-sm uppercase tracking-[0.2em] font-bold">Be the first to lead! Start your legacy today.</p>
+           <Link to="/guilds/create" className="btn px-10">Initialize First Guild</Link>
+        </div>
+      )}
     </div>
   )
 }

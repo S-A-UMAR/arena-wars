@@ -3,19 +3,19 @@
 @tailwind utilities;
 
 :root {
-  --primary: 262 83% 58%;
-  --primary-foreground: 210 20% 98%;
-  --secondary: 217 33% 17%;
+  --primary: 45 100% 50%; /* Mythic Gold */
+  --primary-foreground: 230 40% 8%;
+  --secondary: 200 100% 50%; /* Neon Blue */
   --secondary-foreground: 210 20% 98%;
-  --accent: 191 100% 50%;
-  --accent-foreground: 222 47% 11%;
-  --background: 222 47% 11%;
+  --accent: 45 100% 50%; /* Replaced with Gold for primary highlights */
+  --accent-foreground: 230 40% 8%;
+  --background: 228 35% 8%; /* Deep Space Blue */
   --foreground: 210 20% 98%;
-  --card: 222 47% 11%;
+  --card: 228 35% 10%;
   --card-foreground: 210 20% 98%;
-  --muted: 217 33% 17%;
+  --muted: 228 35% 15%;
   --muted-foreground: 215 20% 65%;
-  --border: 217 33% 17%;
+  --border: 228 35% 20%;
 }
 
 html, body, #root {

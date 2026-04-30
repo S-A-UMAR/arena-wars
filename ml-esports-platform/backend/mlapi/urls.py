@@ -13,8 +13,17 @@ from .views import (
     LeaderboardEntryViewSet,
     ChatMessageViewSet,
     NotificationViewSet,
+    MatchDraftViewSet,
+    PlayerStatsViewSet,
+    DisputeViewSet,
+    RecruitmentPostViewSet,
+    NewsPostViewSet,
+    GuildApplicationViewSet,
+    DirectMessageViewSet,
+    FriendshipViewSet,
     search,
     health_check,
+    GoogleLoginView,
 )
 
 router = DefaultRouter()
@@ -29,11 +38,20 @@ router.register('matches', MatchViewSet)
 router.register('leaderboard', LeaderboardEntryViewSet)
 router.register('chat-messages', ChatMessageViewSet)
 router.register('notifications', NotificationViewSet, basename='notifications')
+router.register('match-drafts', MatchDraftViewSet)
+router.register('player-stats', PlayerStatsViewSet)
+router.register('disputes', DisputeViewSet)
+router.register('recruitment-posts', RecruitmentPostViewSet)
+router.register('news-posts', NewsPostViewSet)
+router.register('guild-applications', GuildApplicationViewSet)
+router.register('direct-messages', DirectMessageViewSet)
+router.register('friendships', FriendshipViewSet)
 
 urlpatterns = [
     path('', include(router.urls)),
     path('login/', TokenObtainPairView.as_view(), name='token_obtain_pair'),
     path('token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
+    path('auth/google/', GoogleLoginView.as_view()),
     path('search/', search, name='search'),
     path('health/', health_check, name='health_check'),
 ]

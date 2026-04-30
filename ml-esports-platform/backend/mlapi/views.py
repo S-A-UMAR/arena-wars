@@ -4,20 +4,20 @@ from rest_framework import viewsets, permissions, status
 from rest_framework.response import Response
 from rest_framework.decorators import action, api_view, permission_classes
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
-from .models import UserProfile, Guild, GuildMember, Scrim, Tournament, TournamentTeam, Match, LeaderboardEntry, ChatMessage, Notification
+from .models import (
+    UserProfile, Guild, GuildMember, Scrim, Tournament, TournamentTeam, 
+    Match, LeaderboardEntry, ChatMessage, Notification, MatchDraft, 
+    PlayerStats, Dispute, RecruitmentPost, NewsPost, GuildApplication, 
+    GuildPost, DirectMessage, Friendship
+)
 from .serializers import (
-    UserSerializer,
-    UserProfileSerializer,
-    RegisterSerializer,
-    GuildSerializer,
-    GuildMemberSerializer,
-    ScrimSerializer,
-    TournamentSerializer,
-    TournamentTeamSerializer,
-    MatchSerializer,
-    LeaderboardEntrySerializer,
-    ChatMessageSerializer,
-    NotificationSerializer,
+    UserSerializer, UserProfileSerializer, RegisterSerializer, 
+    GuildSerializer, GuildMemberSerializer, ScrimSerializer, 
+    TournamentSerializer, TournamentTeamSerializer, MatchSerializer, 
+    LeaderboardEntrySerializer, ChatMessageSerializer, NotificationSerializer, 
+    MatchDraftSerializer, PlayerStatsSerializer, DisputeSerializer, 
+    RecruitmentPostSerializer, NewsPostSerializer, GuildApplicationSerializer, 
+    GuildPostSerializer, DirectMessageSerializer, FriendshipSerializer
 )
 import json
 from urllib import request as urlrequest
@@ -49,7 +49,49 @@ class GuildViewSet(viewsets.ModelViewSet):
     serializer_class = GuildSerializer
     permission_classes = [permissions.IsAuthenticatedOrReadOnly]
     def perform_create(self, serializer):
-        serializer.save(owner=self.request.user)
+        guild = serializer.save(owner=self.request.user)
+        GuildMember.objects.create(guild=guild, user=self.request.user, role='Leader')
+
+    @action(detail=True, methods=['post'])
+    def apply(self, request, pk=None):
+        guild = self.get_object()
+        message = request.data.get('message', '')
+        app, created = GuildApplication.objects.get_or_create(guild=guild, user=request.user, status='pending')
+        if created:
+            app.message = message
+            app.save()
+        return Response(GuildApplicationSerializer(app).data)
+
+    @action(detail=True, methods=['post'])
+    def kick_member(self, request, pk=None):
+        guild = self.get_object()
+        if guild.owner != request.user:
+            return Response({'error': 'Forbidden'}, status=403)
+        user_id = request.data.get('user_id')
+        GuildMember.objects.filter(guild=guild, user_id=user_id).delete()
+        return Response({'status': 'kicked'})
+
+    @action(detail=True, methods=['post'])
+    def add_post(self, request, pk=None):
+        guild = self.get_object()
+        if not GuildMember.objects.filter(guild=guild, user=request.user).exists():
+            return Response({'error': 'Not a member'}, status=403)
+        content = request.data.get('content')
+        post = GuildPost.objects.create(guild=guild, author=request.user, content=content)
+        return Response(GuildPostSerializer(post).data)
+
+    @action(detail=True, methods=['get'])
+    def social_wall(self, request, pk=None):
+        guild = self.get_object()
+        posts = guild.posts.all().order_by('-created_at')
+        return Response(GuildPostSerializer(posts, many=True).data)
+
+    def award_xp(self, guild, amount):
+        guild.xp += amount
+        if guild.xp >= guild.level * 1000:
+            guild.level += 1
+            guild.xp = 0
+        guild.save()
 
 class GuildMemberViewSet(viewsets.ModelViewSet):
     queryset = GuildMember.objects.all()
@@ -66,6 +108,62 @@ class GuildMemberViewSet(viewsets.ModelViewSet):
         guild_id = request.data.get('guild')
         GuildMember.objects.filter(guild_id=guild_id, user=request.user).delete()
         return Response({'status':'left'})
+
+import firebase_admin
+import json
+import os
+from firebase_admin import auth as firebase_auth, credentials
+from rest_framework_simplejwt.tokens import RefreshToken
+
+# Initialize Firebase Admin
+try:
+    service_account_info = os.environ.get('FIREBASE_SERVICE_ACCOUNT_JSON')
+    if service_account_info:
+        cred = credentials.Certificate(json.loads(service_account_info))
+        firebase_admin.initialize_app(cred)
+    else:
+        firebase_admin.initialize_app()
+except (ValueError, json.JSONDecodeError):
+    pass 
+
+class GoogleLoginView(APIView):
+    permission_classes = [AllowAny]
+    
+    def post(self, request):
+        token = request.data.get('token')
+        if not token:
+            return Response({'error': 'Token required'}, status=400)
+            
+        try:
+            # Verify the ID token sent from the client
+            decoded_token = firebase_auth.verify_id_token(token)
+            uid = decoded_token['uid']
+            email = decoded_token.get('email')
+            name = decoded_token.get('name', '')
+            
+            if not email:
+                return Response({'error': 'Email not provided by Google'}, status=400)
+                
+            # Get or create user
+            user, created = User.objects.get_or_create(email=email, defaults={
+                'username': email.split('@')[0] + '_' + uid[:4],
+                'first_name': name
+            })
+            
+            # Ensure profile exists
+            UserProfile.objects.get_or_create(user=user)
+            
+            # Generate JWT
+            refresh = RefreshToken.for_user(user)
+            return Response({
+                'access': str(refresh.access_token),
+                'refresh': str(refresh),
+                'user': UserSerializer(user).data,
+                'created': created
+            })
+            
+        except Exception as e:
+            return Response({'error': str(e)}, status=400)
 
 class ScrimViewSet(viewsets.ModelViewSet):
     queryset = Scrim.objects.all().order_by('-date')
@@ -98,7 +196,16 @@ class TournamentViewSet(viewsets.ModelViewSet):
         tournament = self.get_object()
         guild_id = request.data.get('guild')
         guild = Guild.objects.get(id=guild_id)
-        entry, _ = TournamentTeam.objects.get_or_create(tournament=tournament, guild=guild)
+        
+        # Security: Only guild leader can register
+        if guild.owner != request.user:
+            return Response({'error': 'Only the Guild Leader can register for tournaments.'}, status=403)
+        
+        # Check Slots
+        if tournament.teams.count() >= tournament.max_slots:
+            return Response({'error': 'This tournament is full.'}, status=400)
+            
+        entry, created = TournamentTeam.objects.get_or_create(tournament=tournament, guild=guild)
         return Response(TournamentTeamSerializer(entry).data)
     @action(detail=True, methods=['post'])
     def generate_bracket(self, request, pk=None):
@@ -130,6 +237,50 @@ class MatchViewSet(viewsets.ModelViewSet):
     queryset = Match.objects.all().order_by('-match_date')
     serializer_class = MatchSerializer
     permission_classes = [permissions.IsAuthenticatedOrReadOnly]
+    @action(detail=True, methods=['post'])
+    def check_in(self, request, pk=None):
+        match = self.get_object()
+        guild_id = request.data.get('guild_id')
+        if not guild_id:
+            return Response({'error': 'guild_id required'}, status=400)
+        
+        # Verify user belongs to the guild and is leader/officer
+        if not GuildMember.objects.filter(guild_id=guild_id, user=request.user, role__in=['Leader', 'Officer']).exists():
+            return Response({'error': 'Unauthorized'}, status=403)
+
+        if int(guild_id) == match.guild_a_id:
+            match.guild_a_checked_in = True
+        elif int(guild_id) == match.guild_b_id:
+            match.guild_b_checked_in = True
+        else:
+            return Response({'error': 'Guild not in this match'}, status=400)
+        
+        match.save()
+        return Response(MatchSerializer(match).data)
+
+    @action(detail=True, methods=['post'])
+    def update_room(self, request, pk=None):
+        match = self.get_object()
+        if match.tournament.owner != request.user:
+            return Response({'error': 'Only tournament owner can update room info'}, status=403)
+        
+        match.room_id = request.data.get('room_id', match.room_id)
+        match.room_password = request.data.get('room_password', match.room_password)
+        match.save()
+        return Response(MatchSerializer(match).data)
+
+    @action(detail=True, methods=['post'])
+    def submit_result(self, request, pk=None):
+        match = self.get_object()
+        guild_id = request.data.get('guild_id')
+        if not GuildMember.objects.filter(guild_id=guild_id, user=request.user, role__in=['Leader', 'Officer']).exists():
+            return Response({'error': 'Unauthorized'}, status=403)
+        
+        match.result_image = request.FILES.get('result_image')
+        match.status = 'Completed'
+        match.save()
+        return Response(MatchSerializer(match).data)
+
     @action(detail=True, methods=['post'])
     def record_result(self, request, pk=None):
         match = self.get_object()
@@ -188,6 +339,87 @@ def search(request):
         'guilds': [GuildSerializer(g).data for g in guilds],
         'tournaments': [TournamentSerializer(t).data for t in tournaments],
     })
+class MatchDraftViewSet(viewsets.ModelViewSet):
+    queryset = MatchDraft.objects.all()
+    serializer_class = MatchDraftSerializer
+    permission_classes = [permissions.IsAuthenticatedOrReadOnly]
+
+class PlayerStatsViewSet(viewsets.ModelViewSet):
+    queryset = PlayerStats.objects.all()
+    serializer_class = PlayerStatsSerializer
+    permission_classes = [permissions.IsAuthenticatedOrReadOnly]
+    @action(detail=False, methods=['get'])
+    def by_match(self, request):
+        match_id = request.query_params.get('match')
+        qs = self.queryset.filter(match_id=match_id)
+        return Response(PlayerStatsSerializer(qs, many=True).data)
+
+class DisputeViewSet(viewsets.ModelViewSet):
+    queryset = Dispute.objects.all()
+    serializer_class = DisputeSerializer
+    permission_classes = [permissions.IsAuthenticated]
+    
+    @action(detail=True, methods=['post'])
+    def resolve(self, request, pk=None):
+        if not request.user.is_staff:
+            return Response({'error': 'Forbidden'}, status=status.HTTP_403_FORBIDDEN)
+        dispute = self.get_object()
+        dispute.status = 'resolved'
+        dispute.save()
+        return Response(DisputeSerializer(dispute).data)
+
+class RecruitmentPostViewSet(viewsets.ModelViewSet):
+    queryset = RecruitmentPost.objects.all().order_by('-created_at')
+    serializer_class = RecruitmentPostSerializer
+    permission_classes = [permissions.IsAuthenticatedOrReadOnly]
+
+class NewsPostViewSet(viewsets.ModelViewSet):
+    queryset = NewsPost.objects.all().order_by('-created_at')
+    serializer_class = NewsPostSerializer
+    permission_classes = [permissions.IsAuthenticatedOrReadOnly]
+    
+    def perform_create(self, serializer):
+        serializer.save(author=self.request.user)
+
+class GuildApplicationViewSet(viewsets.ModelViewSet):
+    queryset = GuildApplication.objects.all()
+    serializer_class = GuildApplicationSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    @action(detail=True, methods=['post'])
+    def respond(self, request, pk=None):
+        app = self.get_object()
+        if app.guild.owner != request.user:
+            return Response({'error': 'Forbidden'}, status=403)
+        status = request.data.get('status')
+        if status == 'accepted':
+            GuildMember.objects.get_or_create(guild=app.guild, user=app.user, role='Recruit')
+        app.status = status
+        app.save()
+        return Response(GuildApplicationSerializer(app).data)
+
+class DirectMessageViewSet(viewsets.ModelViewSet):
+    queryset = DirectMessage.objects.all()
+    serializer_class = DirectMessageSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_queryset(self):
+        return DirectMessage.objects.filter(Q(sender=self.request.user) | Q(receiver=self.request.user)).order_by('-created_at')
+
+    def perform_create(self, serializer):
+        serializer.save(sender=self.request.user)
+
+class FriendshipViewSet(viewsets.ModelViewSet):
+    queryset = Friendship.objects.all()
+    serializer_class = FriendshipSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_queryset(self):
+        return Friendship.objects.filter(Q(user_a=self.request.user) | Q(user_b=self.request.user))
+
+    def perform_create(self, serializer):
+        serializer.save(user_a=self.request.user)
+
 @api_view(['GET'])
 @permission_classes([permissions.AllowAny])
 def health_check(request):

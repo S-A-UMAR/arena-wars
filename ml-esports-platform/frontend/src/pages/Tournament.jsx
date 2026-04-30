@@ -1,194 +1,104 @@
 import { useEffect, useState } from 'react'
+import { Link } from 'react-router-dom'
 import Card from '../components/Card'
-import { listTournaments, createTournament, registerGuildToTournament, generateBracket, listMatchesByTournament, uploadReplay } from '../services/api'
+import { listTournaments, registerGuildToTournament, getProfile } from '../services/api'
+import { useAuth } from '../context/AuthContext'
 
 function Tournament() {
+  const { user } = useAuth()
   const [tournaments, setTournaments] = useState([])
-  const [name, setName] = useState('')
-  const [type, setType] = useState('single')
-  const [streamUrl, setStreamUrl] = useState('')
-  const [selectedId, setSelectedId] = useState(null)
-  const [matches, setMatches] = useState([])
+  const [profile, setProfile] = useState(null)
+
   async function load() {
-    const res = await listTournaments()
-    setTournaments(res.data)
+    try {
+      const res = await listTournaments()
+      setTournaments(res.data)
+      if (user) {
+        const p = await getProfile()
+        setProfile(p.data)
+      }
+    } catch (err) { console.error(err) }
   }
-  useEffect(()=>{ load() },[])
-  async function create() {
-    if (!name) return
-    const start_date = new Date().toISOString()
-    await createTournament({ name, type, start_date, stream_url: streamUrl })
-    setName('')
-    setStreamUrl('')
-    load()
+
+  useEffect(() => { load() }, [])
+
+  async function onRegister(id) {
+    if (!profile?.guild) {
+      alert("You must be in a guild to register.")
+      return
+    }
+    try {
+      await registerGuildToTournament(id, profile.guild)
+      alert("Registered successfully!")
+      load()
+    } catch (err) {
+      alert(err.response?.data?.error || "Registration failed")
+    }
   }
-  async function loadMatches(id){
-    const res = await listMatchesByTournament(id)
-    setMatches(res.data)
-  }
-  async function gen(id){
-    await generateBracket(id)
-    loadMatches(id)
-  }
-  async function onReplayChange(id, e){
-    const file = e.target.files?.[0]
-    if (!file) return
-    await uploadReplay(id, file)
-    if (selectedId) loadMatches(selectedId)
-  }
-  // Group matches by round
-  const matchesByRound = matches.reduce((acc, m) => {
-    if (!acc[m.round]) acc[m.round] = []
-    acc[m.round].push(m)
-    return acc
-  }, {})
 
   return (
-    <div className="space-y-10 pb-20">
-      <section>
-        <div className="flex items-center justify-between mb-6">
-          <h1 className="text-3xl font-bold tracking-tight">Active Tournaments</h1>
-          <button className="btn" onClick={() => document.getElementById('createTournament')?.scrollIntoView({behavior:'smooth'})}>
-            + Create New
-          </button>
+    <div className="space-y-16 pb-32">
+      <header className="flex flex-col md:flex-row items-center justify-between gap-8">
+        <div className="space-y-2">
+           <div className="flex items-center gap-2">
+              <span className="w-8 h-1 bg-primary" />
+              <span className="text-[10px] font-black uppercase tracking-[0.4em] text-primary">Live Circuit Alpha</span>
+           </div>
+           <h1 className="text-5xl md:text-7xl font-black italic uppercase italic-font-orbitron text-white">The <span className="text-primary">Arenas</span></h1>
+           <p className="text-muted-foreground text-sm uppercase tracking-widest font-bold opacity-60">Global Synchronization in Progress</p>
         </div>
-        
-        <div className="grid lg:grid-cols-2 gap-6">
-          {tournaments.map(t => (
-            <Card key={t.id} className={`relative overflow-hidden ${selectedId === t.id ? 'border-accent/50' : ''}`}>
-              <div className="flex items-start justify-between">
-                <div>
-                  <div className="text-sm font-semibold text-accent uppercase tracking-wider mb-1">{t.type} Elimination</div>
-                  <h2 className="text-2xl font-bold mb-2">{t.name}</h2>
-                  <div className="flex gap-4 text-sm text-muted-foreground">
-                    <span>📅 Starts: {new Date(t.start_date).toLocaleDateString()}</span>
-                  </div>
-                </div>
-                <div className="flex gap-3">
-                  <button 
-                    className={`px-4 py-2 rounded-xl text-sm font-medium transition ${selectedId === t.id ? 'bg-accent text-background' : 'bg-white/5 hover:bg-white/10'}`} 
-                    onClick={() => setSelectedId(t.id) || loadMatches(t.id)}
-                  >
-                    Manage Bracket
-                  </button>
-                  <button className="btn-secondary text-sm" onClick={() => registerGuildToTournament(t.id, 1)}>
-                    Register
-                  </button>
-                </div>
-              </div>
-              
-              {selectedId === t.id && (
-                <div className="mt-8 space-y-8 animate-in fade-in slide-in-from-top-4 duration-500">
-                  {t.stream_url && (
-                    <div className="aspect-video bg-black rounded-2xl overflow-hidden ring-1 ring-white/10 shadow-2xl">
-                      <iframe 
-                        src={t.stream_url.replace('watch?v=', 'embed/')} 
-                        title="Stream" 
-                        className="w-full h-full" 
-                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
-                      />
-                    </div>
-                  )}
+        <div className="flex gap-4">
+           <Link to="/tournaments/create" className="btn px-10 py-4 shadow-xl shadow-primary/10">+ Create Arena</Link>
+        </div>
+      </header>
 
-                  <div className="bg-black/20 rounded-2xl p-6 border border-white/5">
-                    <div className="flex justify-between items-center mb-8">
-                      <h3 className="text-lg font-bold flex items-center gap-2">
-                        <span className="w-2 h-2 rounded-full bg-accent animate-pulse" />
-                        Live Bracket
-                      </h3>
-                      <div className="flex gap-2">
-                        <button className="text-xs px-3 py-1.5 rounded-lg border border-accent/20 text-accent hover:bg-accent/10 transition" onClick={() => gen(t.id)}>
-                          Reset/Generate
-                        </button>
-                        <button className="text-xs px-3 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 transition" onClick={() => loadMatches(t.id)}>
-                          Refresh
-                        </button>
-                      </div>
-                    </div>
-
-                    <div className="flex gap-8 overflow-x-auto pb-6 custom-scrollbar">
-                      {Object.keys(matchesByRound).sort((a,b)=>a-b).map(round => (
-                        <div key={round} className="flex-shrink-0 w-64 space-y-6">
-                          <div className="text-center text-xs font-bold uppercase tracking-widest text-muted-foreground mb-4">Round {round}</div>
-                          {matchesByRound[round].map(m => (
-                            <div key={m.id} className="relative group">
-                              <div className="bg-white/5 border border-white/10 rounded-xl p-4 transition-all duration-300 group-hover:border-white/20 group-hover:bg-white/10">
-                                <div className="space-y-3 font-medium text-sm">
-                                  <div className="flex justify-between items-center">
-                                    <span className="text-gray-300">Guild {m.guild_a || 'TBD'}</span>
-                                    <span className="text-accent">{m.score_a || 0}</span>
-                                  </div>
-                                  <div className="h-px bg-white/5" />
-                                  <div className="flex justify-between items-center">
-                                    <span className="text-gray-300">Guild {m.guild_b || 'TBD'}</span>
-                                    <span className="text-accent">{m.score_b || 0}</span>
-                                  </div>
-                                </div>
-                                <div className="mt-4 flex justify-between items-center gap-2 pt-2 border-t border-white/5 opacity-0 group-hover:opacity-100 transition-opacity">
-                                  <label className="text-[10px] uppercase font-bold text-accent cursor-pointer hover:underline">
-                                    <input type="file" className="hidden" onChange={(e) => onReplayChange(m.id, e)} />
-                                    Upload Replay
-                                  </label>
-                                  {m.replay_file && (
-                                    <span className="text-[10px] uppercase font-bold text-muted-foreground">Replay ✓</span>
-                                  )}
-                                </div>
-                              </div>
-                            </div>
-                          ))}
+      <div className="grid lg:grid-cols-2 gap-10">
+        {tournaments.map(t => (
+          <Link key={t.id} to={`/tournaments/${t.id}`}>
+            <Card className="group relative overflow-hidden border-white/5 hover:border-primary/40 transition-all duration-700 hover:scale-[1.01] bg-gradient-to-br from-white/[0.02] to-transparent p-0">
+               <div className="p-8 space-y-8 relative z-10">
+                  <div className="flex justify-between items-start">
+                     <div className="space-y-3">
+                        <div className="flex items-center gap-3">
+                           <span className="px-3 py-0.5 rounded-full text-[8px] font-black uppercase tracking-widest bg-primary/10 border border-primary/20 text-primary">{t.type} ELIM</span>
+                           <span className={`px-3 py-0.5 rounded-full text-[8px] font-black uppercase tracking-widest border ${t.status === 'open' ? 'border-green-500 text-green-500 bg-green-500/5' : 'border-white/10 text-muted-foreground bg-white/5'}`}>{t.status}</span>
                         </div>
-                      ))}
-                      {Object.keys(matchesByRound).length === 0 && (
-                        <div className="w-full py-12 text-center text-muted-foreground italic">No bracket matches generated yet.</div>
-                      )}
-                    </div>
+                        <h2 className="text-3xl font-black uppercase italic italic-font-orbitron text-white leading-tight group-hover:text-primary transition-colors">{t.name}</h2>
+                     </div>
+                     <div className="w-16 h-16 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center text-3xl transition-transform group-hover:scale-110 duration-500">🏆</div>
                   </div>
-                </div>
-              )}
-            </Card>
-          ))}
-        </div>
-      </section>
 
-      <section id="createTournament" className="max-w-4xl mx-auto pt-10">
-        <Card className="glass border-accent/20">
-          <h2 className="text-2xl font-bold mb-6">Host New Tournament</h2>
-          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-4">
-            <div className="space-y-2 lg:col-span-2">
-              <label className="text-xs font-bold uppercase text-muted-foreground">Tournament Name</label>
-              <input 
-                className="w-full px-4 py-2.5 rounded-xl bg-white/5 border border-white/10 focus:border-accent outline-none transition" 
-                placeholder="Region Finals S1..." 
-                value={name} 
-                onChange={e => setName(e.target.value)} 
-              />
-            </div>
-            <div className="space-y-2">
-              <label className="text-xs font-bold uppercase text-muted-foreground">Format</label>
-              <select 
-                className="w-full px-4 py-2.5 rounded-xl bg-white/5 border border-white/10 focus:border-accent outline-none transition" 
-                value={type} 
-                onChange={e => setType(e.target.value)}
-              >
-                <option value="single">Single Elim</option>
-                <option value="double">Double Elim</option>
-              </select>
-            </div>
-            <div className="lg:col-span-3 space-y-2">
-              <label className="text-xs font-bold uppercase text-muted-foreground">YouTube/Twitch Stream URL</label>
-              <input 
-                className="w-full px-4 py-2.5 rounded-xl bg-white/5 border border-white/10 focus:border-accent outline-none transition" 
-                placeholder="https://youtube.com/..." 
-                value={streamUrl} 
-                onChange={e => setStreamUrl(e.target.value)} 
-              />
-            </div>
-            <div className="flex items-end">
-              <button className="btn w-full h-[46px]" onClick={create}>Launch Arena</button>
-            </div>
-          </div>
-        </Card>
-      </section>
+                  <p className="text-sm text-gray-400 font-medium leading-relaxed italic opacity-60 line-clamp-2">"{t.description || "Enter the fray and secure your place in history."}"</p>
+
+                  <div className="grid grid-cols-3 gap-4">
+                     {[
+                        { label: 'Prize Pool', val: t.prize_pool || '$0.00', color: 'text-primary' },
+                        { label: 'Slots', val: `${t.teams_count || 0} / ${t.max_slots}`, color: 'text-white' },
+                        { label: 'Deployment', val: new Date(t.start_date).toLocaleDateString([], { month: 'short', day: 'numeric' }), color: 'text-white' }
+                     ].map(stat => (
+                        <div key={stat.label} className="bg-black/40 p-4 rounded-2xl border border-white/5">
+                           <div className="text-[8px] font-black uppercase tracking-widest text-muted-foreground mb-1">{stat.label}</div>
+                           <div className={`text-sm font-black italic tracking-tight ${stat.color}`}>{stat.val}</div>
+                        </div>
+                     ))}
+                  </div>
+
+                  <div className="flex items-center justify-between pt-6 border-t border-white/5">
+                     <div className="flex -space-x-3">
+                        {[1,2,3,4].map(i => <div key={i} className="w-8 h-8 rounded-full border-2 border-background bg-white/10" />)}
+                        <div className="w-8 h-8 rounded-full border-2 border-background bg-white/5 flex items-center justify-center text-[8px] font-black text-white">+{t.teams_count || 0}</div>
+                     </div>
+                     <div className="text-[10px] font-black text-primary uppercase italic tracking-widest group-hover:mr-2 transition-all">Analyze Intelligence →</div>
+                  </div>
+               </div>
+
+               {/* Background Effects */}
+               <div className="absolute top-0 right-0 w-64 h-64 bg-primary/5 rounded-full blur-[80px] -z-0 opacity-0 group-hover:opacity-100 transition-opacity duration-700" />
+               <div className="absolute bottom-0 left-0 w-1 h-0 bg-primary group-hover:h-full transition-all duration-700" />
+            </Card>
+          </Link>
+        ))}
+      </div>
     </div>
   )
 }

@@ -12,13 +12,24 @@ api.interceptors.request.use(config => {
   return config
 })
 
-export function login(username, password) {
-  return api.post('/login/', { username, password })
-}
+api.interceptors.response.use(
+  response => response,
+  error => {
+    if (error.response && error.response.status === 401) {
+      localStorage.removeItem('access')
+      localStorage.removeItem('refresh')
+      // Only redirect if not already on login or home
+      if (window.location.pathname !== '/login' && window.location.pathname !== '/') {
+        window.location.href = '/login'
+      }
+    }
+    return Promise.reject(error)
+  }
+)
 
-export function register(payload) {
-  return api.post('/register/', payload)
-}
+export const login = (username, password) => api.post('login/', { username, password });
+export const googleLogin = (token) => api.post('auth/google/', { token });
+export const register = (data) => api.post('auth/register/', data);
 
 export function getProfile() {
   return api.get('/profile/')
@@ -111,5 +122,22 @@ export function createChatMessage(payload) {
 export function listNotifications() {
   return api.get('/notifications/')
 }
+
+// New Phase 7 API Endpoints
+export function listDisputes() { return api.get('/disputes/') }
+export function resolveDispute(id) { return api.post(`/disputes/${id}/resolve/`) }
+
+export function listMarketPosts() { return api.get('/recruitment-posts/') }
+export function createMarketPost(data) { return api.post('/recruitment-posts/', data) }
+
+export function listFreeAgents() { return api.get('/profile/?is_free_agent=true') }
+
+export function listNews() { return api.get('/news-posts/') }
+export function createNews(data) { return api.post('/news-posts/', data) }
+
+export function getMatchDraft(matchId) { return api.get(`/match-drafts/?match=${matchId}`) }
+export function saveMatchDraft(data) { return api.post('/match-drafts/', data) }
+
+export function listPlayerStatsByMatch(matchId) { return api.get('/player-stats/by_match/', { params: { match: matchId } }) }
 
 export default api
