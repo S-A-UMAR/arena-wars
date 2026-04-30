@@ -15,14 +15,14 @@ class Migration(migrations.Migration):
         #     name='country',
         #     field=models.CharField(blank=True, max_length=64),
         # ),
-        migrations.AddField(
-            model_name='guild',
-            name='join_policy',
-            field=models.CharField(choices=[('Open', 'Open'), ('Request', 'Request Only'), ('Password', 'Password Protected')], default='Open', max_length=32),
-        ),
-        migrations.AddField(
-            model_name='guild',
-            name='tag',
-            field=models.CharField(blank=True, max_length=8, null=True, unique=True),
-        ),
+        # migrations.AddField(
+        #     model_name='guild',
+        #     name='join_policy',
+        #     field=models.CharField(choices=[('Open', 'Open'), ('Request', 'Request Only'), ('Password', 'Password Protected')], default='Open', max_length=32),
+        # ),
+        # migrations.AddField(
+        #     model_name='guild',
+        #     name='tag',
+        #     field=models.CharField(blank=True, max_length=8, null=True, unique=True),
+        # ),
     ]
