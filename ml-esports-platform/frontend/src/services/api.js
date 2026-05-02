@@ -36,7 +36,11 @@ export function googleLogin(token) {
 }
 
 export function register(payload) {
-  return api.post('/auth/register/', payload)
+  return api.post('/register/', payload)
+}
+
+export function verifyRegistration(email, code) {
+  return api.post('/verify-registration/', { email, code })
 }
 
 export function getProfile() {
@@ -155,5 +159,8 @@ export function getMatchDraft(matchId) { return api.get(`/match-drafts/?match=${
 export function saveMatchDraft(data) { return api.post('/match-drafts/', data) }
 
 export function listPlayerStatsByMatch(matchId) { return api.get('/player-stats/by_match/', { params: { match: matchId } }) }
+
+export function getMetaMatrix() { return api.get('/analytics/meta-matrix/') }
+export function listTheatreMatches() { return api.get('/matches/theatre/') }
 
 export default api

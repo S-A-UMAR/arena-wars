@@ -10,7 +10,7 @@ from .models import (
     UserProfile, Guild, GuildMember, Scrim, Tournament, TournamentTeam, 
     Match, LeaderboardEntry, ChatMessage, Notification, MatchDraft, 
     PlayerStats, Dispute, RecruitmentPost, NewsPost, GuildApplication, 
-    GuildPost, DirectMessage, Friendship
+    GuildPost, DirectMessage, Friendship, HeroBan, PrizeRecord
 )
 from .serializers import (
     UserSerializer, UserProfileSerializer, RegisterSerializer, 
@@ -19,7 +19,8 @@ from .serializers import (
     LeaderboardEntrySerializer, ChatMessageSerializer, NotificationSerializer, 
     MatchDraftSerializer, PlayerStatsSerializer, DisputeSerializer, 
     RecruitmentPostSerializer, NewsPostSerializer, GuildApplicationSerializer, 
-    GuildPostSerializer, DirectMessageSerializer, FriendshipSerializer
+    GuildPostSerializer, DirectMessageSerializer, FriendshipSerializer,
+    HeroBanSerializer, PrizeRecordSerializer
 )
 import json
 from urllib import request as urlrequest
@@ -30,8 +31,55 @@ class RegisterView(viewsets.ViewSet):
         serializer = RegisterSerializer(data=request.data)
         if serializer.is_valid():
             user = serializer.save()
-            return Response(UserSerializer(user).data, status=status.HTTP_201_CREATED)
+            user.is_active = False # Deactivate until verified
+            user.save()
+            
+            # Generate 6-digit code
+            import random
+            from .models import VerificationCode
+            code = f"{random.randint(100000, 999999)}"
+            VerificationCode.objects.create(user=user, code=code)
+            
+            # Send Email
+            from .resend_utils import send_verification_email
+            send_verification_email(user.email, code)
+            
+            return Response({'message': 'Access code sent to email.'}, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+class VerifyRegistrationView(APIView):
+    permission_classes = [permissions.AllowAny]
+    
+    def post(self, request):
+        email = request.data.get('email')
+        code = request.data.get('code')
+        if not email or not code:
+            return Response({'error': 'Email and code required.'}, status=status.HTTP_400_BAD_REQUEST)
+            
+        try:
+            user = User.objects.get(email=email)
+            from .models import VerificationCode
+            vc = VerificationCode.objects.filter(user=user, code=code, is_verified=False).first()
+            if not vc:
+                return Response({'error': 'Invalid or expired access code.'}, status=status.HTTP_400_BAD_REQUEST)
+                
+            vc.is_verified = True
+            vc.save()
+            
+            user.is_active = True
+            user.save()
+            
+            # Generate JWT
+            from rest_framework_simplejwt.tokens import RefreshToken
+            refresh = RefreshToken.for_user(user)
+            
+            return Response({
+                'access': str(refresh.access_token),
+                'refresh': str(refresh),
+                'user': UserSerializer(user).data
+            }, status=status.HTTP_200_OK)
+        except User.DoesNotExist:
+            return Response({'error': 'User not found.'}, status=status.HTTP_404_NOT_FOUND)
 
 class ProfileView(viewsets.ViewSet):
     permission_classes = [permissions.IsAuthenticated]
@@ -137,8 +185,14 @@ class GoogleLoginView(APIView):
             return Response({'error': 'Token required'}, status=400)
             
         try:
-            # Verify the ID token sent from the client
-            decoded_token = firebase_auth.verify_id_token(token)
+            try:
+                decoded_token = firebase_auth.verify_id_token(token)
+            except ValueError as e:
+                # Catch ValueError which often happens if credentials are not provided
+                if "default credentials" in str(e).lower() or "service account" in str(e).lower() or "app" in str(e).lower():
+                    return Response({'error': 'Firebase credentials not configured on backend. Please add FIREBASE_SERVICE_ACCOUNT_JSON to .env'}, status=400)
+                raise e
+            
             uid = decoded_token['uid']
             email = decoded_token.get('email')
             name = decoded_token.get('name', '')
@@ -307,6 +361,21 @@ class MatchViewSet(viewsets.ModelViewSet):
         qs = self.queryset.filter(tournament_id=tid).order_by('round','match_date')
         return Response(MatchSerializer(qs, many=True).data)
 
+    @action(detail=False, methods=['get'])
+    def theatre(self, request):
+        # Fetch matches with a replay file or stream url
+        qs = self.queryset.filter(Q(replay_file__isnull=False) | Q(tournament__stream_url__isnull=False)).exclude(replay_file='', tournament__stream_url='').order_by('-match_date')
+        
+        # We need to include the stream_url in the response, so let's modify the serializer or just return it in a custom dict
+        data = []
+        for m in qs:
+            m_data = MatchSerializer(m).data
+            m_data['stream_url'] = m.tournament.stream_url if m.tournament else ''
+            m_data['tournament_name'] = m.tournament.name if m.tournament else ''
+            data.append(m_data)
+        
+        return Response(data)
+
 class LeaderboardEntryViewSet(viewsets.ModelViewSet):
     queryset = LeaderboardEntry.objects.all().order_by('-score','-wins')
     serializer_class = LeaderboardEntrySerializer
@@ -421,6 +490,47 @@ class FriendshipViewSet(viewsets.ModelViewSet):
 
     def perform_create(self, serializer):
         serializer.save(user_a=self.request.user)
+
+class HeroBanViewSet(viewsets.ModelViewSet):
+    queryset = HeroBan.objects.all()
+    serializer_class = HeroBanSerializer
+    permission_classes = [permissions.IsAuthenticatedOrReadOnly]
+
+class PrizeRecordViewSet(viewsets.ModelViewSet):
+    queryset = PrizeRecord.objects.all()
+    serializer_class = PrizeRecordSerializer
+    permission_classes = [permissions.IsAuthenticatedOrReadOnly]
+
+class AnalyticsViewSet(viewsets.ViewSet):
+    permission_classes = [permissions.AllowAny]
+
+    @action(detail=False, methods=['get'], url_path='meta-matrix')
+    def meta_matrix(self, request):
+        # Most picked heroes from PlayerStats
+        most_picked = list(PlayerStats.objects.exclude(hero_played='').values('hero_played').annotate(count=Count('hero_played')).order_by('-count')[:5])
+        
+        # Most banned heroes from HeroBan
+        most_banned = list(HeroBan.objects.values('hero_name').annotate(count=Count('hero_name')).order_by('-count')[:5])
+        
+        # Top players by role
+        # Join UserProfile with Leaderboard or just use UserProfile mythic points / rank
+        top_players = []
+        for role in ['Jungler', 'Mid', 'Gold', 'EXP', 'Roam']:
+            top_user = UserProfile.objects.filter(preferred_lane=role).order_by('-mythic_points', '-win_rate').first()
+            if top_user:
+                top_players.append({
+                    'role': role,
+                    'username': top_user.user.username,
+                    'mythic_points': top_user.mythic_points,
+                    'win_rate': top_user.win_rate,
+                    'profile_image': top_user.profile_image.url if top_user.profile_image else None
+                })
+
+        return Response({
+            'most_picked': most_picked,
+            'most_banned': most_banned,
+            'top_players': top_players
+        })
 
 @api_view(['GET'])
 @permission_classes([permissions.AllowAny])

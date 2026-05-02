@@ -34,6 +34,11 @@ export default {
           blue: '#00eaff',
           green: '#39ff14'
         }
+      },
+      keyframes: {
+        shimmer: {
+          '100%': { transform: 'translateX(100%)' }
+        }
       }
     }
   },

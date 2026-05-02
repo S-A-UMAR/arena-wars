@@ -1,8 +1,8 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { useParams } from 'react-router-dom'
-import { motion, AnimatePresence } from 'framer-motion'
+import { motion } from 'framer-motion'
 import Card from '../components/Card'
-import { getMatch, updateMatchStats } from '../services/api'
+import { getMatch } from '../services/api'
 import { useToast } from '../context/ToastContext'
 
 function WarRoom() {
@@ -11,6 +11,12 @@ function WarRoom() {
   const [loading, setLoading] = useState(true)
   const [hype, setHype] = useState(0)
   const { showToast } = useToast()
+
+  // Tactical Map WebSockets & Canvas
+  const canvasRef = useRef(null)
+  const ws = useRef(null)
+  const [isDrawing, setIsDrawing] = useState(false)
+  const [color, setColor] = useState('#3b82f6') // default blue
 
   useEffect(() => {
     async function load() {
@@ -25,127 +31,152 @@ function WarRoom() {
       }
     }
     load()
-    const interval = setInterval(load, 10000) // Poll every 10s for "Live" feel
-    return () => clearInterval(interval)
+
+    // Initialize WebSocket for WarRoom
+    ws.current = new WebSocket(`ws://localhost:8000/ws/warroom/${id}/`)
+    ws.current.onmessage = (event) => {
+      const data = JSON.parse(event.data)
+      if (data.type === 'draw') {
+        drawLine(data.x0, data.y0, data.x1, data.y1, data.color, false)
+      } else if (data.type === 'clear') {
+        clearCanvas(false)
+      }
+    }
+
+    return () => {
+      ws.current?.close()
+    }
   }, [id])
+
+  const drawLine = (x0, y0, x1, y1, strokeColor, emit = true) => {
+    const canvas = canvasRef.current
+    if (!canvas) return
+    const ctx = canvas.getContext('2d')
+    ctx.beginPath()
+    ctx.moveTo(x0, y0)
+    ctx.lineTo(x1, y1)
+    ctx.strokeStyle = strokeColor
+    ctx.lineWidth = 3
+    ctx.lineCap = 'round'
+    ctx.stroke()
+    ctx.closePath()
+
+    if (!emit) return
+    if (ws.current?.readyState === WebSocket.OPEN) {
+      ws.current.send(JSON.stringify({ type: 'draw', x0, y0, x1, y1, color: strokeColor }))
+    }
+  }
+
+  const clearCanvas = (emit = true) => {
+    const canvas = canvasRef.current
+    if (!canvas) return
+    const ctx = canvas.getContext('2d')
+    ctx.clearRect(0, 0, canvas.width, canvas.height)
+    
+    if (emit && ws.current?.readyState === WebSocket.OPEN) {
+      ws.current.send(JSON.stringify({ type: 'clear' }))
+    }
+  }
+
+  // Pointer refs for drawing
+  const currentPos = useRef({ x: 0, y: 0 })
+
+  const getPos = (e) => {
+    const rect = canvasRef.current.getBoundingClientRect()
+    return {
+      x: e.clientX - rect.left,
+      y: e.clientY - rect.top
+    }
+  }
+
+  const onMouseDown = (e) => {
+    setIsDrawing(true)
+    const pos = getPos(e)
+    currentPos.current = pos
+  }
+
+  const onMouseUp = () => {
+    setIsDrawing(false)
+  }
+
+  const onMouseMove = (e) => {
+    if (!isDrawing) return
+    const pos = getPos(e)
+    drawLine(currentPos.current.x, currentPos.current.y, pos.x, pos.y, color, true)
+    currentPos.current = pos
+  }
 
   const onHype = () => {
     setHype(prev => prev + 1)
-    // In real app, send to backend
   }
 
   if (loading) return <div className="h-screen flex items-center justify-center text-white italic animate-pulse">Establishing Satellite Link...</div>
 
   return (
     <div className="space-y-8 pb-32">
-      {/* Cinematic Header */}
-      <div className="relative h-[400px] rounded-[4rem] overflow-hidden border border-white/5 bg-black">
+      <div className="relative h-[250px] rounded-[4rem] overflow-hidden border border-white/5 bg-black">
          <div className="absolute inset-0 opacity-40">
             <img src="https://images.unsplash.com/photo-1542751371-adc38448a05e?auto=format&fit=crop&q=80&w=2070" className="w-full h-full object-cover" />
          </div>
          <div className="absolute inset-0 bg-gradient-to-t from-background via-background/40 to-transparent" />
          
          <div className="relative h-full flex flex-col items-center justify-center p-10 text-center">
-            <div className="flex items-center gap-4 mb-6">
-               <span className="w-12 h-1 bg-primary" />
-               <span className="text-[12px] font-black uppercase tracking-[0.5em] text-primary animate-pulse">Live Engagement In Progress</span>
-               <span className="w-12 h-1 bg-primary" />
-            </div>
-            
-            <div className="flex items-center gap-10 md:gap-20">
-               <div className="space-y-4">
-                  <div className="w-24 h-24 md:w-32 md:h-32 rounded-[3rem] bg-white/5 border border-white/10 flex items-center justify-center text-4xl md:text-6xl shadow-2xl">🛡️</div>
-                  <h2 className="text-2xl md:text-4xl font-black text-white uppercase italic italic-font-orbitron tracking-tighter">{match.guild_a_name}</h2>
-               </div>
-               <div className="text-center space-y-2">
-                  <div className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">Global Score</div>
-                  <div className="text-7xl md:text-9xl font-black text-white italic tracking-tighter leading-none">{match.score_a} <span className="text-primary text-4xl md:text-6xl px-4">-</span> {match.score_b}</div>
-               </div>
-               <div className="space-y-4">
-                  <div className="w-24 h-24 md:w-32 md:h-32 rounded-[3rem] bg-white/5 border border-white/10 flex items-center justify-center text-4xl md:text-6xl shadow-2xl">⚔️</div>
-                  <h2 className="text-2xl md:text-4xl font-black text-white uppercase italic italic-font-orbitron tracking-tighter">{match.guild_b_name || 'TBD'}</h2>
-               </div>
-            </div>
+            <h1 className="text-4xl md:text-6xl font-black italic uppercase italic-font-orbitron tracking-tighter text-white">Tactical <span className="text-primary">War Room</span></h1>
+            <p className="text-muted-foreground mt-2 uppercase tracking-widest text-xs font-bold">Collaborative Strategy Board</p>
          </div>
       </div>
 
-      {/* Live Scoreboard (The missing logic) */}
-      <div className="grid lg:grid-cols-3 gap-8 max-w-7xl mx-auto -mt-20 relative z-10">
-         <Card className="p-10 border-white/5 bg-white/[0.01] backdrop-blur-2xl rounded-[3rem] text-center space-y-4">
-            <div className="text-[10px] font-black text-muted-foreground uppercase tracking-[0.4em]">Unit Kills</div>
-            <div className="flex justify-between items-center px-10">
-               <div className="text-5xl font-black text-white italic">{match.team_a_kills || 24}</div>
-               <div className="w-px h-12 bg-white/10" />
-               <div className="text-5xl font-black text-white italic">{match.team_b_kills || 18}</div>
-            </div>
-         </Card>
-         <Card className="p-10 border-white/5 bg-white/[0.01] backdrop-blur-2xl rounded-[3rem] text-center space-y-4">
-            <div className="text-[10px] font-black text-muted-foreground uppercase tracking-[0.4em]">Resource Accumulation (Gold)</div>
-            <div className="flex justify-between items-center px-6">
-               <div className="text-3xl font-black text-primary italic">{(match.team_a_gold || 42000).toLocaleString()}</div>
-               <div className="w-px h-12 bg-white/10" />
-               <div className="text-3xl font-black text-primary italic">{(match.team_b_gold || 38500).toLocaleString()}</div>
-            </div>
-         </Card>
-         <Card className="p-10 border-white/5 bg-white/[0.01] backdrop-blur-2xl rounded-[3rem] text-center space-y-4 relative overflow-hidden group">
-            <div className="text-[10px] font-black text-muted-foreground uppercase tracking-[0.4em]">Arena Hype</div>
-            <div className="text-5xl font-black text-accent italic">{hype}</div>
-            <button 
-               onClick={onHype}
-               className="btn-secondary w-full py-2 text-[8px] font-black uppercase tracking-widest hover:bg-accent hover:text-background transition-all"
-            >
-               Cheer For Battalion
-            </button>
-            <div className="absolute top-0 right-0 w-32 h-32 bg-accent/10 rounded-full blur-[60px] -z-0" />
-         </Card>
-      </div>
-
-      {/* Pick & Ban Simulation (Visual only for now) */}
-      <div className="grid lg:grid-cols-2 gap-12 max-w-7xl mx-auto">
-         <Card className="p-10 border-white/5 bg-white/[0.01] rounded-[4rem]">
-            <h3 className="text-sm font-black text-white uppercase tracking-[0.3em] italic mb-10 border-b border-white/5 pb-4">Battalion Alpha <span className="text-primary">Draft Selection</span></h3>
-            <div className="space-y-8">
-               <div className="flex gap-4">
-                  {[1, 2, 3, 4, 5].map(i => (
-                     <div key={i} className="flex-1 aspect-[3/4] rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center text-3xl hover:border-primary/50 transition-all cursor-pointer group relative overflow-hidden">
-                        👤
-                        <div className="absolute inset-0 bg-primary/10 opacity-0 group-hover:opacity-100 transition-opacity" />
-                     </div>
-                  ))}
-               </div>
-               <div className="flex gap-3">
-                  <span className="text-[9px] font-black text-muted-foreground uppercase tracking-widest mr-4">Bans:</span>
-                  {[1, 2, 3, 4, 5].map(i => (
-                     <div key={i} className="w-10 h-10 rounded-xl bg-red-500/10 border border-red-500/20 flex items-center justify-center text-xs opacity-40 grayscale hover:grayscale-0 transition">❌</div>
-                  ))}
-               </div>
-            </div>
-         </Card>
+      <div className="max-w-6xl mx-auto grid lg:grid-cols-4 gap-8 relative z-10">
          
-         <Card className="p-10 border-white/5 bg-white/[0.01] rounded-[4rem]">
-            <h3 className="text-sm font-black text-white uppercase tracking-[0.3em] italic mb-10 border-b border-white/5 pb-4">Battalion Omega <span className="text-primary">Draft Selection</span></h3>
-            <div className="space-y-8">
-               <div className="flex gap-4">
-                  {[1, 2, 3, 4, 5].map(i => (
-                     <div key={i} className="flex-1 aspect-[3/4] rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center text-3xl hover:border-primary/50 transition-all cursor-pointer group relative overflow-hidden">
-                        👤
-                        <div className="absolute inset-0 bg-primary/10 opacity-0 group-hover:opacity-100 transition-opacity" />
-                     </div>
-                  ))}
-               </div>
-               <div className="flex gap-3">
-                  <span className="text-[9px] font-black text-muted-foreground uppercase tracking-widest mr-4">Bans:</span>
-                  {[1, 2, 3, 4, 5].map(i => (
-                     <div key={i} className="w-10 h-10 rounded-xl bg-red-500/10 border border-red-500/20 flex items-center justify-center text-xs opacity-40 grayscale hover:grayscale-0 transition">❌</div>
-                  ))}
-               </div>
+         {/* Tools Panel */}
+         <Card className="p-6 border-white/5 bg-white/[0.01] backdrop-blur-2xl rounded-[3rem] space-y-6 h-fit">
+            <h3 className="text-xs font-black uppercase tracking-widest text-muted-foreground border-b border-white/10 pb-4">Marker Palette</h3>
+            <div className="flex gap-4">
+               <button onClick={() => setColor('#3b82f6')} className={`w-10 h-10 rounded-full bg-blue-500 shadow-[0_0_15px_rgba(59,130,246,0.5)] transition ${color === '#3b82f6' ? 'ring-2 ring-white scale-110' : 'opacity-50'}`}></button>
+               <button onClick={() => setColor('#ef4444')} className={`w-10 h-10 rounded-full bg-red-500 shadow-[0_0_15px_rgba(239,68,68,0.5)] transition ${color === '#ef4444' ? 'ring-2 ring-white scale-110' : 'opacity-50'}`}></button>
+               <button onClick={() => setColor('#eab308')} className={`w-10 h-10 rounded-full bg-yellow-500 shadow-[0_0_15px_rgba(234,179,8,0.5)] transition ${color === '#eab308' ? 'ring-2 ring-white scale-110' : 'opacity-50'}`}></button>
+               <button onClick={() => setColor('#22c55e')} className={`w-10 h-10 rounded-full bg-green-500 shadow-[0_0_15px_rgba(34,197,94,0.5)] transition ${color === '#22c55e' ? 'ring-2 ring-white scale-110' : 'opacity-50'}`}></button>
             </div>
+            <button onClick={() => clearCanvas(true)} className="w-full py-3 bg-white/5 hover:bg-white/10 border border-white/10 rounded-2xl text-xs font-black uppercase tracking-widest transition">
+               Clear Board
+            </button>
          </Card>
-      </div>
 
-      {/* Persistence Background */}
-      <div className="fixed top-0 left-0 w-full h-full -z-20 pointer-events-none">
-         <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(255,215,0,0.05)_0%,transparent_70%)]" />
+         {/* Tactical Map Canvas */}
+         <div className="lg:col-span-3">
+            <Card className="relative overflow-hidden border border-white/10 rounded-[3rem] bg-black shadow-2xl group">
+               {/* Grid Background simulating a blueprint/map */}
+               <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.05)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.05)_1px,transparent_1px)] bg-[size:40px_40px]"></div>
+               
+               {/* 3 Lanes visualization */}
+               <div className="absolute inset-0 opacity-20 pointer-events-none">
+                  <svg width="100%" height="100%" xmlns="http://www.w3.org/2000/svg">
+                     {/* Top Lane */}
+                     <path d="M 50 750 Q 50 50 750 50" fill="transparent" stroke="#eab308" strokeWidth="8" strokeDasharray="20 10"/>
+                     {/* Mid Lane */}
+                     <path d="M 50 750 L 750 50" fill="transparent" stroke="#eab308" strokeWidth="8" strokeDasharray="20 10"/>
+                     {/* Bot Lane */}
+                     <path d="M 50 750 Q 750 750 750 50" fill="transparent" stroke="#eab308" strokeWidth="8" strokeDasharray="20 10"/>
+                     {/* River */}
+                     <path d="M 0 0 L 800 800" fill="transparent" stroke="#3b82f6" strokeWidth="20" opacity="0.5"/>
+                  </svg>
+               </div>
+
+               <canvas
+                  ref={canvasRef}
+                  width={800}
+                  height={800}
+                  onMouseDown={onMouseDown}
+                  onMouseUp={onMouseUp}
+                  onMouseOut={onMouseUp}
+                  onMouseMove={onMouseMove}
+                  className="relative z-10 w-full h-auto aspect-square cursor-crosshair touch-none"
+               />
+               <div className="absolute top-4 right-4 bg-black/50 backdrop-blur border border-primary/30 px-3 py-1 rounded text-[10px] font-black uppercase tracking-widest text-primary flex items-center gap-2 pointer-events-none">
+                 <span className="w-2 h-2 rounded-full bg-primary animate-pulse"></span> Live Sync
+               </div>
+            </Card>
+         </div>
       </div>
     </div>
   )

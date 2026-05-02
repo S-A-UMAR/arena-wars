@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import Card from '../components/Card'
-import { register, googleLogin } from '../services/api'
+import { register, googleLogin, verifyRegistration } from '../services/api'
 import { motion, AnimatePresence } from 'framer-motion'
 import NeuralBackground from '../components/NeuralBackground'
 import { useToast } from '../context/ToastContext'
@@ -47,12 +47,23 @@ function Register() {
     }
   }
 
-  const verifyCode = (e) => {
+  const verifyCode = async (e) => {
     e.preventDefault()
+    setLoading(true)
     if (vCode.length === 6) {
-      showToast("Identity Verified", "success")
-      window.location.href = '/dashboard'
+      try {
+        const res = await verifyRegistration(form.email, vCode)
+        localStorage.setItem('access', res.data.access)
+        localStorage.setItem('refresh', res.data.refresh)
+        showToast("Identity Verified", "success")
+        window.location.href = '/dashboard'
+      } catch (err) {
+        showToast(err.response?.data?.error || "Verification Failed", "error")
+      } finally {
+        setLoading(false)
+      }
     } else {
+      setLoading(false)
       showToast("Invalid Access Code", "error")
     }
   }

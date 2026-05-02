@@ -3,6 +3,7 @@ import { useParams, Link } from 'react-router-dom'
 import Card from '../components/Card'
 import { listTournaments, listMatchesByTournament } from '../services/api'
 import { motion, AnimatePresence } from 'framer-motion'
+import { HeaderSkeleton } from '../components/Skeleton'
 
 function TournamentDetail() {
   const { id } = useParams()
@@ -29,7 +30,7 @@ function TournamentDetail() {
     load()
   }, [id])
 
-  if (loading) return <div className="text-center py-32 text-muted-foreground italic uppercase tracking-[0.5em] animate-pulse">Synchronizing Tournament Core...</div>
+  if (loading) return <div className="py-20"><HeaderSkeleton /></div>
   if (!tournament) return <div className="text-center py-32 text-red-500 font-black uppercase italic tracking-widest">Tournament Not Found</div>
 
   return (
@@ -79,35 +80,89 @@ function TournamentDetail() {
            transition={{ duration: 0.3 }}
          >
             {activeTab === 'bracket' && (
-              <div className="space-y-12">
-                 {/* Simplified Bracket View */}
-                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
-                    {matches.length > 0 ? matches.map(match => (
-                      <Link to={`/matches/${match.id}`} key={match.id}>
-                        <Card className="p-6 border-white/5 bg-white/[0.01] hover:border-primary/20 transition-all group">
-                           <div className="text-[8px] font-black text-muted-foreground uppercase tracking-widest mb-4">Round {match.round}</div>
-                           <div className="space-y-4">
-                              <div className="flex justify-between items-center">
-                                 <span className="text-xs font-black text-white uppercase italic">{match.guild_a_name}</span>
-                                 <span className="text-sm font-black text-primary">{match.score_a}</span>
-                              </div>
-                              <div className="flex justify-between items-center">
-                                 <span className="text-xs font-black text-white uppercase italic">{match.guild_b_name || 'TBD'}</span>
-                                 <span className="text-sm font-black text-primary">{match.score_b}</span>
-                              </div>
-                           </div>
-                           <div className="mt-4 pt-4 border-t border-white/5 flex justify-between items-center">
-                              <span className={`text-[8px] font-black uppercase tracking-widest ${match.status === 'live' ? 'text-red-500 animate-pulse' : 'text-muted-foreground'}`}>{match.status}</span>
-                              <span className="text-[10px] text-primary opacity-0 group-hover:opacity-100 transition-opacity">Analyze →</span>
-                           </div>
-                        </Card>
-                      </Link>
-                    )) : (
-                      <div className="col-span-full text-center py-20 border border-dashed border-white/5 rounded-[3rem] opacity-30">
-                        <span className="text-xs font-black uppercase tracking-[0.4em]">Bracket Generation Pending</span>
-                      </div>
-                    )}
+              <div className="relative w-full h-[600px] bg-black/40 border border-white/5 rounded-[3rem] overflow-hidden cursor-grab active:cursor-grabbing">
+                 <div className="absolute top-4 left-4 z-20 flex gap-2">
+                    <div className="px-3 py-1 bg-white/10 backdrop-blur rounded text-[10px] font-black uppercase tracking-widest text-white border border-white/10">Drag to Pan</div>
+                    <div className="px-3 py-1 bg-primary/20 backdrop-blur rounded text-[10px] font-black uppercase tracking-widest text-primary border border-primary/20">Interactive Map</div>
                  </div>
+                 <motion.div 
+                   drag 
+                   dragConstraints={{ left: -1000, right: 1000, top: -500, bottom: 500 }}
+                   className="absolute inset-0 flex items-center p-20 min-w-max"
+                 >
+                    {/* Simplified 3-round Bracket Tree Visualization */}
+                    <div className="flex items-stretch gap-24 relative">
+                       {/* Quarterfinals */}
+                       <div className="flex flex-col justify-around gap-12 relative z-10">
+                          {[1,2,3,4].map(i => (
+                            <Link to={`/matches/${matches[i]?.id || i}`} key={`qf-${i}`}>
+                               <Card className="w-64 p-4 border-white/10 hover:border-primary/50 transition-all bg-black/80 hover:bg-black group shadow-xl">
+                                  <div className="text-[8px] font-black uppercase tracking-widest text-muted-foreground mb-2">Quarterfinal {i}</div>
+                                  <div className="flex justify-between items-center bg-white/5 p-2 rounded mb-1">
+                                     <span className="text-xs font-black uppercase">{matches[i]?.guild_a_name || 'TBD'}</span>
+                                     <span className="text-xs text-primary font-black">{matches[i]?.score_a || 0}</span>
+                                  </div>
+                                  <div className="flex justify-between items-center bg-white/5 p-2 rounded opacity-50">
+                                     <span className="text-xs font-black uppercase">{matches[i]?.guild_b_name || 'TBD'}</span>
+                                     <span className="text-xs text-primary font-black">{matches[i]?.score_b || 0}</span>
+                                  </div>
+                               </Card>
+                            </Link>
+                          ))}
+                       </div>
+
+                       {/* SVG Connector Lines QF to SF */}
+                       <svg className="absolute left-64 top-0 w-24 h-full pointer-events-none -z-0">
+                          <path d="M 0 12% C 50 12%, 50 25%, 96 25%" fill="none" stroke="rgba(255,255,255,0.1)" strokeWidth="2" />
+                          <path d="M 0 38% C 50 38%, 50 25%, 96 25%" fill="none" stroke="rgba(255,255,255,0.1)" strokeWidth="2" />
+                          <path d="M 0 62% C 50 62%, 50 75%, 96 75%" fill="none" stroke="rgba(255,255,255,0.1)" strokeWidth="2" />
+                          <path d="M 0 88% C 50 88%, 50 75%, 96 75%" fill="none" stroke="rgba(255,255,255,0.1)" strokeWidth="2" />
+                       </svg>
+
+                       {/* Semifinals */}
+                       <div className="flex flex-col justify-around gap-24 relative z-10">
+                          {[1,2].map(i => (
+                            <Link to={`/matches/${matches[i+4]?.id || i+4}`} key={`sf-${i}`}>
+                               <Card className="w-64 p-4 border-white/10 hover:border-primary/50 transition-all bg-black/80 hover:bg-black shadow-[0_0_20px_rgba(255,219,0,0.05)]">
+                                  <div className="text-[8px] font-black uppercase tracking-widest text-primary mb-2">Semifinal {i}</div>
+                                  <div className="flex justify-between items-center bg-white/5 p-2 rounded mb-1">
+                                     <span className="text-xs font-black uppercase">TBD</span>
+                                     <span className="text-xs text-primary font-black">0</span>
+                                  </div>
+                                  <div className="flex justify-between items-center bg-white/5 p-2 rounded">
+                                     <span className="text-xs font-black uppercase">TBD</span>
+                                     <span className="text-xs text-primary font-black">0</span>
+                                  </div>
+                               </Card>
+                            </Link>
+                          ))}
+                       </div>
+
+                       {/* SVG Connector Lines SF to GF */}
+                       <svg className="absolute left-[34rem] top-0 w-24 h-full pointer-events-none -z-0">
+                          <path d="M 0 25% C 50 25%, 50 50%, 96 50%" fill="none" stroke="rgba(255,219,0,0.3)" strokeWidth="2" />
+                          <path d="M 0 75% C 50 75%, 50 50%, 96 50%" fill="none" stroke="rgba(255,219,0,0.3)" strokeWidth="2" />
+                       </svg>
+
+                       {/* Grand Finals */}
+                       <div className="flex flex-col justify-center relative z-10">
+                          <Link to={`/matches/final`} key="gf">
+                             <Card className="w-80 p-6 border-primary/50 bg-black shadow-[0_0_40px_rgba(255,219,0,0.2)] scale-110">
+                                <div className="text-[10px] font-black uppercase tracking-[0.4em] text-primary mb-4 text-center animate-pulse">Grand Final</div>
+                                <div className="flex justify-between items-center bg-primary/10 p-3 rounded-lg mb-2 border border-primary/20">
+                                   <span className="text-sm font-black uppercase text-white">TBD</span>
+                                   <span className="text-sm text-primary font-black">0</span>
+                                </div>
+                                <div className="flex justify-between items-center bg-white/5 p-3 rounded-lg">
+                                   <span className="text-sm font-black uppercase text-muted-foreground">TBD</span>
+                                   <span className="text-sm text-primary font-black">0</span>
+                                </div>
+                             </Card>
+                          </Link>
+                       </div>
+                    </div>
+                 </motion.div>
+                 <div className="absolute inset-0 pointer-events-none shadow-[inset_0_0_100px_rgba(0,0,0,0.8)]" />
               </div>
             )}
 

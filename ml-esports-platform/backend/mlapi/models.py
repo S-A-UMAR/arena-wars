@@ -140,8 +140,8 @@ class Match(models.Model):
 
 class Notification(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='notifications')
-    title = models.CharField(max_length=128)
-    message = models.TextField()
+    title = models.CharField(max_length=128, default='')
+    message = models.TextField(default='')
     type = models.CharField(max_length=32, default='info')
     is_read = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -168,12 +168,6 @@ class ChatMessage(models.Model):
     text = models.TextField()
     created_at = models.DateTimeField(auto_now_add=True)
 
-class Notification(models.Model):
-    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='notifications')
-    type = models.CharField(max_length=32)
-    content = models.CharField(max_length=256)
-    is_read = models.BooleanField(default=False)
-    created_at = models.DateTimeField(auto_now_add=True)
 
 class MatchDraft(models.Model):
     match = models.ForeignKey(Match, on_delete=models.CASCADE, related_name='drafts')

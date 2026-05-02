@@ -3,12 +3,16 @@ import Card from '../components/Card'
 import { listMarketPosts, listFreeAgents } from '../services/api'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useToast } from '../context/ToastContext'
+import { GridSkeleton } from '../components/Skeleton'
 
 function Market() {
   const [activeTab, setActiveTab] = useState('free_agents')
   const [freeAgents, setFreeAgents] = useState([])
   const [recruitments, setRecruitments] = useState([])
   const [loading, setLoading] = useState(true)
+  const [filterRank, setFilterRank] = useState('All')
+  const [filterRole, setFilterRole] = useState('All')
+  const [filterWinRate, setFilterWinRate] = useState(50)
   const { showToast } = useToast()
 
   useEffect(() => {
@@ -59,6 +63,44 @@ function Market() {
          ))}
       </div>
 
+      {activeTab === 'free_agents' && (
+        <div className="max-w-4xl mx-auto bg-black/40 border border-white/5 rounded-[2rem] p-6 mb-10 flex flex-col md:flex-row gap-6 items-end backdrop-blur-xl">
+           <div className="flex-1 space-y-2">
+              <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Tactical Role</label>
+              <select value={filterRole} onChange={e => setFilterRole(e.target.value)} className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm font-bold text-white outline-none focus:border-primary/50">
+                 <option value="All">All Roles</option>
+                 <option value="Jungler">Jungler</option>
+                 <option value="Mid">Mid Lane</option>
+                 <option value="Gold">Gold Lane</option>
+                 <option value="EXP">EXP Lane</option>
+                 <option value="Roam">Roam</option>
+              </select>
+           </div>
+           <div className="flex-1 space-y-2">
+              <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Rank Clearance</label>
+              <select value={filterRank} onChange={e => setFilterRank(e.target.value)} className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm font-bold text-white outline-none focus:border-primary/50">
+                 <option value="All">All Ranks</option>
+                 <option value="Mythic Immortal">Mythic Immortal</option>
+                 <option value="Mythical Glory">Mythical Glory</option>
+                 <option value="Mythical Honor">Mythical Honor</option>
+                 <option value="Mythic">Mythic</option>
+              </select>
+           </div>
+           <div className="flex-1 space-y-2">
+              <div className="flex justify-between">
+                 <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Min Win Rate</label>
+                 <span className="text-[10px] font-black text-primary">{filterWinRate}%</span>
+              </div>
+              <input 
+                type="range" min="0" max="100" 
+                value={filterWinRate} onChange={e => setFilterWinRate(e.target.value)}
+                className="w-full accent-primary"
+              />
+           </div>
+           <button onClick={() => {setFilterRole('All'); setFilterRank('All'); setFilterWinRate(50)}} className="px-6 py-3 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-xs font-black uppercase tracking-widest transition">Reset</button>
+        </div>
+      )}
+
       <AnimatePresence mode="wait">
         <motion.div
           key={activeTab}
@@ -68,7 +110,13 @@ function Market() {
           transition={{ duration: 0.4 }}
           className="grid md:grid-cols-2 lg:grid-cols-3 gap-10"
         >
-          {activeTab === 'free_agents' && freeAgents.map(p => (
+          {activeTab === 'free_agents' && freeAgents.filter(p => {
+             const wr = parseFloat(p.win_rate || 0);
+             const roleMatch = filterRole === 'All' || (p.main_role === filterRole);
+             const rankMatch = filterRank === 'All' || (p.rank === filterRank);
+             const wrMatch = wr >= filterWinRate;
+             return roleMatch && rankMatch && wrMatch;
+          }).map(p => (
             <Card key={p.id} className="relative overflow-hidden group border-white/5 hover:border-primary/40 transition-all duration-700 bg-white/[0.01] p-8 rounded-[3rem]">
                <div className="relative z-10 flex flex-col h-full">
                   <div className="flex justify-between items-start mb-8">
@@ -136,9 +184,8 @@ function Market() {
       </AnimatePresence>
 
       {loading && (
-        <div className="py-40 text-center space-y-4">
-           <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto" />
-           <p className="text-[10px] font-black uppercase tracking-[0.4em] text-white opacity-40">Scanning Marketplace Channels...</p>
+        <div className="pt-10">
+           <GridSkeleton count={6} height="h-64" />
         </div>
       )}
     </div>

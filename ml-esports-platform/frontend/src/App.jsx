@@ -28,6 +28,8 @@ import { ToastProvider } from './context/ToastContext'
 
 import DraftSimulator from './pages/DraftSimulator'
 import WarRoom from './pages/WarRoom'
+import MetaMatrix from './pages/MetaMatrix'
+import Theatre from './pages/Theatre'
 
 function App() {
   const location = useLocation()
@@ -45,6 +47,8 @@ function App() {
               <Route path="/news" element={<News />} />
               <Route path="/draft-sim" element={<DraftSimulator />} />
               <Route path="/war-room/:id" element={<WarRoom />} />
+              <Route path="/analytics" element={<MetaMatrix />} />
+              <Route path="/theatre" element={<Theatre />} />
               
               <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
               <Route path="/profile" element={<ProtectedRoute><PlayerProfile /></ProtectedRoute>} />

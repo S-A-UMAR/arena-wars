@@ -21,9 +21,13 @@ from .views import (
     GuildApplicationViewSet,
     DirectMessageViewSet,
     FriendshipViewSet,
+    HeroBanViewSet,
+    PrizeRecordViewSet,
+    AnalyticsViewSet,
     search,
     health_check,
     GoogleLoginView,
+    VerifyRegistrationView,
 )
 
 router = DefaultRouter()
@@ -46,11 +50,15 @@ router.register('news-posts', NewsPostViewSet)
 router.register('guild-applications', GuildApplicationViewSet)
 router.register('direct-messages', DirectMessageViewSet)
 router.register('friendships', FriendshipViewSet)
+router.register('hero-bans', HeroBanViewSet)
+router.register('prize-records', PrizeRecordViewSet)
+router.register('analytics', AnalyticsViewSet, basename='analytics')
 
 urlpatterns = [
     path('', include(router.urls)),
     path('login/', TokenObtainPairView.as_view(), name='token_obtain_pair'),
     path('token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
+    path('verify-registration/', VerifyRegistrationView.as_view(), name='verify_registration'),
     path('auth/google/', GoogleLoginView.as_view()),
     path('search/', search, name='search'),
     path('health/', health_check, name='health_check'),

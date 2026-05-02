@@ -4,7 +4,7 @@ from .models import (
     UserProfile, Guild, GuildMember, Scrim, Tournament, TournamentTeam, 
     Match, LeaderboardEntry, ChatMessage, Notification, PrizeRecord, MatchDraft, 
     PlayerStats, Dispute, RecruitmentPost, NewsPost, GuildApplication, 
-    GuildPost, DirectMessage, Friendship
+    GuildPost, DirectMessage, Friendship, HeroBan
 )
 
 class UserSerializer(serializers.ModelSerializer):
@@ -104,7 +104,7 @@ class ChatMessageSerializer(serializers.ModelSerializer):
 class NotificationSerializer(serializers.ModelSerializer):
     class Meta:
         model = Notification
-        fields = ['id','type','content','is_read','created_at']
+        fields = ['id','title','message','type','is_read','created_at']
 
 class LeaderboardEntrySerializer(serializers.ModelSerializer):
     class Meta:
@@ -133,9 +133,10 @@ class TournamentTeamSerializer(serializers.ModelSerializer):
         model = TournamentTeam
         fields = ['id','tournament','guild','guild_name','guild_logo','seed','main_players','sub_players']
 
-class NotificationSerializer(serializers.ModelSerializer):
+
+class HeroBanSerializer(serializers.ModelSerializer):
     class Meta:
-        model = Notification
+        model = HeroBan
         fields = '__all__'
 
 class PrizeRecordSerializer(serializers.ModelSerializer):

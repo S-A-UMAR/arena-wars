@@ -1,9 +1,11 @@
 import { useState } from 'react'
 import { Link, NavLink } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
+import { useAura } from '../context/AuraContext'
 
 function NavBar() {
   const { user, logout } = useAuth()
+  const { aura, setAura, AURAS } = useAura()
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
 
   const navLinks = [
@@ -13,10 +15,13 @@ function NavBar() {
     { name: 'Draft Sim', path: '/draft-sim' },
     { name: 'Leaderboard', path: '/leaderboard' },
     { name: 'Guilds', path: '/guilds' },
+    { name: 'Analytics', path: '/analytics' },
+    { name: 'Theatre', path: '/theatre' },
   ]
 
   const [theme, setTheme] = useState('dark')
   const [notifOpen, setNotifOpen] = useState(false)
+  const [auraMenuOpen, setAuraMenuOpen] = useState(false)
 
   const toggleTheme = () => {
     const next = theme === 'dark' ? 'light' : 'dark'
@@ -66,7 +71,29 @@ function NavBar() {
                       {theme === 'dark' ? '🌙' : '☀️'}
                     </button>
                     <div className="relative">
-                      <button onClick={() => setNotifOpen(!notifOpen)} className="w-8 h-8 rounded-full bg-white/5 border border-white/10 flex items-center justify-center text-sm hover:bg-white/10 transition relative">
+                      <button onClick={() => {setAuraMenuOpen(!auraMenuOpen); setNotifOpen(false);}} className="w-8 h-8 rounded-full bg-white/5 border border-white/10 flex items-center justify-center text-sm hover:bg-white/10 transition">
+                        ✨
+                      </button>
+                      {auraMenuOpen && (
+                        <div className="absolute top-full right-0 mt-4 w-48 glass border border-white/10 rounded-2xl p-4 shadow-2xl animate-in fade-in slide-in-from-top-2">
+                          <div className="text-[10px] font-black uppercase tracking-widest text-muted-foreground mb-3">Select Aura</div>
+                          <div className="space-y-2">
+                             {Object.entries(AURAS).map(([key, val]) => (
+                               <button 
+                                 key={key} 
+                                 onClick={() => {setAura(key); setAuraMenuOpen(false);}}
+                                 className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg transition-all ${aura === key ? 'bg-white/10 border border-white/20' : 'hover:bg-white/5 border border-transparent'}`}
+                               >
+                                  <div className="w-3 h-3 rounded-full" style={{ backgroundColor: `hsl(${val.color})`, boxShadow: `0 0 10px hsl(${val.color})` }}></div>
+                                  <span className="text-[10px] font-bold text-white uppercase tracking-widest">{val.label}</span>
+                               </button>
+                             ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                    <div className="relative">
+                      <button onClick={() => {setNotifOpen(!notifOpen); setAuraMenuOpen(false);}} className="w-8 h-8 rounded-full bg-white/5 border border-white/10 flex items-center justify-center text-sm hover:bg-white/10 transition relative">
                         🔔
                         <span className="absolute top-0 right-0 w-2 h-2 bg-primary rounded-full animate-pulse" />
                       </button>
